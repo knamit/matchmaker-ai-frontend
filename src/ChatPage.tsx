@@ -3,25 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { Layout, Input, Button, List, Typography, Card, Space } from 'antd'
 import ReactMarkdown from 'react-markdown'
 import './styles.css';
+import axios from 'axios';
+
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
 
-const mockUser = {
-  name: 'John Doe',
-  email: 'john@example.com',
-  company: 'Acme Inc.',
-  role: 'Product Manager'
-}
-
-const mockTools = [
-  { id: 1, name: 'AI Writer Pro', description: 'Advanced AI-powered writing assistant' },
-  { id: 2, name: 'SmartAnalyzer', description: 'Intelligent data analysis tool' },
-  { id: 3, name: 'CodeGPT', description: 'AI pair programmer for developers' }
-]
-
 interface Message {
   text: string;
-  sender: 'user' | 'ai';
+  threadId?: string;
+  sender: 'user' | 'ai' | 'ai-res';
 }
 
 interface Tool {
@@ -41,17 +31,18 @@ const user = {
 export default function ChatPage({ setSelectedTool }: { setSelectedTool: (tool: any) => void }) {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
-  const [showText, setShowText] = useState(true);
+  const [showText, setShowText] = useState(true)
+  const [tools, setTools] = useState<{ name: string, tool_api_endpoint: string }[]>([])
+  const [isbuildLoading, setisbuildLoading] = useState(false)
+  const [isCrawlerLoading, setIsCrawlerLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleSend = (text: string) => {
     setShowText(false);
     if (!text) return;
 
-    // Add user message to the chat
     setMessages(prevMessages => [...prevMessages, { text, sender: 'user' }]);
 
-    // Scroll down to the bottom of the page
     window.scrollTo(0, document.body.scrollHeight);
 
     const data = { message: text };
@@ -70,17 +61,55 @@ export default function ChatPage({ setSelectedTool }: { setSelectedTool: (tool: 
         return response.json();
       })
       .then(data => {
-        // Add AI response to the chat
         console.log('data', data);
-        setMessages(prevMessages => [...prevMessages, { text: data.message, sender: 'ai' }]);
+        setMessages(prevMessages => [...prevMessages, { text: data.message, threadId: data.threadId, sender: 'ai' }]);
       })
       .catch((error) => {
         console.error('Error:', error);
       });
 
-    // Clear the input field after sending
     setInput('');
   }
+
+  const handleBuild = (message: any) => {
+    setisbuildLoading(true)
+    console.log(message);
+
+    const body = {
+      message: message.text,
+      threadId: message.threadId
+    };
+
+    axios.post("https://kqwxt0.buildship.run/tool-options-api-parsed", body).then((res) => {
+      console.log(res.data);
+      setTools(res.data.tools)
+      setisbuildLoading(false)
+
+    })
+      .catch((e) => {
+        console.log(e)
+        setisbuildLoading(false)
+      })
+  }
+
+  const handleCrawl = (url: string) => {
+    setIsCrawlerLoading(true)
+
+    const body = {
+      url: url,
+    };
+
+    axios.post("https://kqwxt0.buildship.run/crawl", body)
+      .then(response => {
+        console.log('Crawl response:', response.data);
+        setMessages(prevMessages => [...prevMessages, { text: response.data, sender: 'ai-res' }]);
+      })
+      .catch(error => {
+        console.error('Error during crawl:', error);
+      });
+    setIsCrawlerLoading(false)
+  };
+
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -101,7 +130,7 @@ export default function ChatPage({ setSelectedTool }: { setSelectedTool: (tool: 
       </Sider>
       <Layout>
         <Content style={{ padding: 24, background: '#fff', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-        <div style={{ flex: 1 }} />
+          <div style={{ flex: 1 }} />
           {showText && (
             <div className="centered-text" id='#div-to-remove'>
               Build Your Next Big Thing
@@ -115,18 +144,47 @@ export default function ChatPage({ setSelectedTool }: { setSelectedTool: (tool: 
                 style={{
                   justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
                   textAlign: message.sender === 'user' ? 'right' : 'left',
+                  flexDirection: message.sender === 'user' ? "row" : "column"
                 }}
               >
                 <Card style={{ maxWidth: '60%', background: message.sender === 'user' ? '#e6f7ff' : '#f0f0f0' }}>
-                  {message.sender === 'ai' ? (
-                    <ReactMarkdown>{message.text}</ReactMarkdown>
-                  ) : (
+                  {message.sender === 'user' ? (
                     <Text>{message.text}</Text>
+                  ) : (
+                    <ReactMarkdown>{message.text}</ReactMarkdown>
                   )}
                 </Card>
+
+                {message.sender === 'ai' && (
+                  <div style={{
+                    display: "flex",
+                    gap: "1rem",
+                    marginTop: "1rem"
+                  }}>
+                    <Button>
+                      Regenerate
+                    </Button>
+                    <Button onClick={() => handleBuild(message)}>
+                      {isbuildLoading ? "Loading..." : "Build"}
+                    </Button>
+                  </div>
+                )}
+                {message.sender === 'ai' && tools.length > 0 && (
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
+                    {tools.map(tool => (
+                      <Button
+                        key={tool.name}
+                        onClick={() => handleCrawl(tool.tool_api_endpoint)}
+                      >
+                        {isCrawlerLoading ? "Loading..." : tool.name}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </List.Item>
             )}
           />}
+
         </Content>
         <Header style={{ background: '#fff', padding: '10px 16px' }}>
           <Input.Search
