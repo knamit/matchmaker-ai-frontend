@@ -135,7 +135,8 @@ export default function ChatPage({ setSelectedTool }: { setSelectedTool: (tool: 
             </div>
           )}
           <div style={{ flex: 1 }} />
-          {messages && <List
+          {messages && 
+          <List
             dataSource={messages}
             renderItem={message => (
               <List.Item
