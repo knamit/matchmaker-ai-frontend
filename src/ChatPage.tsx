@@ -1,6 +1,5 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Layout, Input, Button, List, Typography, Card, Space } from 'antd'
+import { useState } from 'react'
+import { Layout, Input, Button, List, Typography, Card } from 'antd'
 import ReactMarkdown from 'react-markdown'
 import './styles.css';
 import axios from 'axios';
@@ -35,7 +34,6 @@ export default function ChatPage({ setSelectedTool }: { setSelectedTool: (tool: 
   const [tools, setTools] = useState<{ name: string, tool_api_endpoint: string }[]>([])
   const [isbuildLoading, setisbuildLoading] = useState(false)
   const [isCrawlerLoading, setIsCrawlerLoading] = useState(false)
-  const navigate = useNavigate()
 
   const handleSend = (text: string) => {
     setShowText(false);
